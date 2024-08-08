@@ -40,13 +40,6 @@ def get_normalize_amount_text(s: str):
             return match.group()
         return None
     
-    # def is_number(s):
-    #     try:
-    #         float(s)
-    #         return True
-    #     except ValueError:
-    #         return False
-    
     if s:
         striped_text = s.strip()
         if not is_number(striped_text):
@@ -62,15 +55,9 @@ def get_field_bbox(field):
 
 def parser_currency_object(parent: dict, currency_map_by_locale: dict, locale: str, id):
     child = list()
-    # amount = parent.copy() # 改成不是直接copy了?? 好像還是可以先抄，只是怕有兩個bbox應該只要拿一個就好
-    # amount['entityId'] = str(uuid.uuid4())
-    # amount['parentId'] = parent.get('entityId')
-    # amount['label'] = "Amount"
-    # amount['tags'] = []
-    # child.append(amount)
-
+    
+    # notfound: reading order順序don't care反正沒有bbox
     if parent.get("state") == "notFound":
-
         amount = {
             "entityId": str(uuid.uuid4()),
             "label": "Amount",
@@ -111,8 +98,8 @@ def parser_currency_object(parent: dict, currency_map_by_locale: dict, locale: s
             "parentId": parent.get('entityId')
         }
         child.append(currency_symbol)
+    
     else:
-        
         bboxs = get_field_bbox(parent)
         if len(bboxs) > 2:
             special_case.add(id)
@@ -129,7 +116,6 @@ def parser_currency_object(parent: dict, currency_map_by_locale: dict, locale: s
         else:
             currency_symbol_state = parent.get('state')
             
-            # currency_symbol_bbox = parent.get('boundingBoxes') if len(bboxs) == 1 else [bbox for bbox in bboxs if not is_number(bbox['customData']['text'])]
             if len(bboxs) == 1:
                 currency_symbol_bbox = parent.get('boundingBoxes')
             else:
@@ -154,26 +140,18 @@ def parser_currency_object(parent: dict, currency_map_by_locale: dict, locale: s
                 elif is_number(bbox['customData'].get('text', '')):
                     amount_bbox.append(bbox)
 
-        
         amount = {
             "entityId": str(uuid.uuid4()),
             "label": "Amount",
             "state": parent.get('state'),
-            # "boundingBoxes": [],  #??
-            # "boundingBoxes":parent.get('boundingBoxes') if len(bboxs) == 1 else [bbox for bbox in bboxs if is_number(bbox['customData']['text'])],  #??
             "boundingBoxes": amount_bbox,
             "pages": parent.get('pages'),
             "children": [],
             "tags": [],
-            # "text": "",  # ??
-            "text": normalize_amount_text,  # ??
+            "text": normalize_amount_text,
             "value": parent.get('value'),
             "parentId": parent.get('entityId')
         }
-        child.append(amount)
-        
-
-        # child[0]['text'] = get_normalize_amount_text(child[0]['text'])  ###
         
         currency_code = {
             "entityId": str(uuid.uuid4()),
@@ -186,31 +164,33 @@ def parser_currency_object(parent: dict, currency_map_by_locale: dict, locale: s
             "value": currency_map_by_locale.get(locale) if currency_map_by_locale.get(locale) is not None else None,
             "parentId": parent.get('entityId')
         }
-        child.append(currency_code)
         
-        # currency symbol要改
         currency_symbol = {
             "entityId": str(uuid.uuid4()),
             "label": "CurrencySymbol",
-            # "state": "notFound",  # ????
             "state": currency_symbol_state,
-            # "boundingBoxes": [],   # ???
-            "boundingBoxes": currency_symbol_bbox,   # ???
+            "boundingBoxes": currency_symbol_bbox,
             "pages": [],
             "children": [],
             "tags": [],
             "value": "",
-            # "text": "",    # ??
-            "text": currency_symbol_text,    # ??
+            "text": currency_symbol_text,
             "parentId": parent.get('entityId')
         }
-        child.append(currency_symbol)
 
+        if currency_symbol_text:
+            # 判斷先放amount或symbol
+            if origin_text.find(currency_symbol_text) < origin_text.find(normalize_amount_text):
+                child.extend([currency_symbol, amount, currency_code])
+            else:
+                child.extend([amount, currency_symbol, currency_code])
+        else:
+            child.extend([amount, currency_symbol, currency_code])
 
     parent['children'] = child
 
-date = "0807"
-folder = "en_us_clean_field"
+date = "0808"
+folder = "en_other_field"
 path = Path(f"C:\\Users\\v-linluke\\Desktop\\OneDoc\\0726-Receipt-EN-thermal-field-task\\task-prelabel-currency-adjust\\exported\\{folder}")
 idlist_txts = [
     Path("C:\\Users\\v-linluke\\Desktop\\OneDoc\\0726-Receipt-EN-thermal-field-task\\task-prelabel-currency-adjust\\idlists-0726\\en_others_train_id_list.txt"),
@@ -235,9 +215,10 @@ for task in [
         # # # 看情況社的條件: 只需要某幾個檔案時
         # if fpath.stem.split('.')[0] not in ['Receipt_008_421', 'Receipt_005_473', 'ReceiptEN_000_782', 'ReceiptEN_011_706']:
         #     continue
-        if fpath.stem.split('.')[0] not in ['Receipt_008_421','Receipt_005_473','ReceiptEN_000_782','ReceiptEN_011_706','Receipt_006_528']:
+        # if fpath.stem.split('.')[0] not in ['Receipt_008_421','Receipt_005_473','ReceiptEN_000_782','ReceiptEN_011_706','Receipt_006_528']:
+        #     continue
+        if fpath.stem.split('.')[0] not in ['ReceiptEN_010_201', 'ReceiptEN_002_172','ReceiptEN_003_398']:
             continue
-
         # # 測試新規則
         # if fpath.stem.split('.')[0] not in ['ReceiptEN_006_976', 'ReceiptEN_000_000','ReceiptEN_000_036','ReceiptEN_000_001', 'ReceiptEN_006_430','ReceiptEN_006_863']:
         #     continue
