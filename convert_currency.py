@@ -34,8 +34,26 @@ def is_number(s):
 def get_normalize_amount_text(s: str):
 
     def extract_numbers(s):
-        match = re.search(r'-?\d[\d,]*(?:\.\d+)?', s)
-                        
+        # special case: $ .50, $.06: pattern with $.數字，$和.中可能有空白
+        if re.match('\$(\s*\.\d+)', s):
+            match = re.search(r'(\s*\.\d+)', s)    
+            if match:
+                return match.group()
+            return None
+        
+        # special case: (數字) 或 (  數字 ) 中間有空白
+        if re.match('\(\s*.*?\s*\)', s):
+            return s
+        
+        # 多個數字
+        if re.fullmatch(r'(\d+\s*)+', s):
+            print("多個數字")
+            return s
+        
+        
+        # base case 第一個數字前面的和最後的數字後的東西都不要
+        # special case: 數字- 保留
+        match = re.search(r'-?\d[\d,]*(?:\.\d+)?-?', s)           
         if match:
             return match.group()
         return None
@@ -104,7 +122,9 @@ def parser_currency_object(parent: dict, currency_map_by_locale: dict, locale: s
         if len(bboxs) > 2:
             special_case.add(id)
 
-        origin_text = parent.get('text')
+        # tricky special case, although it may not origin text anymore
+        # but for the -$0.11, we treat it as $-0.11
+        origin_text = parent.get('text').replace('-$', '$-')
         normalize_amount_text = get_normalize_amount_text(origin_text)
 
         # try to extract the currency symbol
@@ -178,8 +198,10 @@ def parser_currency_object(parent: dict, currency_map_by_locale: dict, locale: s
             "parentId": parent.get('entityId')
         }
 
+        
         if currency_symbol_text:
             # 判斷先放amount或symbol
+            
             if origin_text.find(currency_symbol_text) < origin_text.find(normalize_amount_text):
                 child.extend([currency_symbol, amount, currency_code])
             else:
@@ -190,11 +212,12 @@ def parser_currency_object(parent: dict, currency_map_by_locale: dict, locale: s
     parent['children'] = child
 
 date = "0808"
-folder = "en_other_field"
+folder = "split-primary-field"
 path = Path(f"C:\\Users\\v-linluke\\Desktop\\OneDoc\\0726-Receipt-EN-thermal-field-task\\task-prelabel-currency-adjust\\exported\\{folder}")
+path = Path(f"C:\\Users\\v-linluke\\Desktop\\OneDoc\\0726-Receipt-EN-thermal-field-task\\split\\primary_field")
 idlist_txts = [
-    Path("C:\\Users\\v-linluke\\Desktop\\OneDoc\\0726-Receipt-EN-thermal-field-task\\task-prelabel-currency-adjust\\idlists-0726\\en_others_train_id_list.txt"),
-    Path("C:\\Users\\v-linluke\\Desktop\\OneDoc\\0726-Receipt-EN-thermal-field-task\\task-prelabel-currency-adjust\\idlists-0726\\en_others_val.txt")
+    Path("C:\\Users\\v-linluke\\Desktop\\OneDoc\\0726-Receipt-EN-thermal-field-task\\task-prelabel-currency-adjust\\idlists-0726\\en_us_train_refinement.txt"),
+    Path("C:\\Users\\v-linluke\\Desktop\\OneDoc\\0726-Receipt-EN-thermal-field-task\\task-prelabel-currency-adjust\\idlists-0726\\us_val_id_list.txt")
 ]
 need_id = generate_idlist_set(idlist_txts)
 
@@ -217,28 +240,27 @@ for task in [
         #     continue
         # if fpath.stem.split('.')[0] not in ['Receipt_008_421','Receipt_005_473','ReceiptEN_000_782','ReceiptEN_011_706','Receipt_006_528']:
         #     continue
-        if fpath.stem.split('.')[0] not in ['ReceiptEN_010_201', 'ReceiptEN_002_172','ReceiptEN_003_398']:
-            continue
-        # # 測試新規則
-        # if fpath.stem.split('.')[0] not in ['ReceiptEN_006_976', 'ReceiptEN_000_000','ReceiptEN_000_036','ReceiptEN_000_001', 'ReceiptEN_006_430','ReceiptEN_006_863']:
+        
+        # if fpath.stem.split('.')[0] not in ['ReceiptEN_010_201', 'ReceiptEN_002_172','ReceiptEN_003_398']:
         #     continue
 
-        # if fpath.stem.split('.')[0] not in need_id:
+        # # 測試en_us_clean_field的特殊Amount檔案
+        # if fpath.stem.split('.')[0] not in ['Receipt_005_066', 'Receipt_005_133', 'Receipt_006_643', 'Receipt_016_679', 'Receipt_029_815', 'Receipt_035_034', 'Receipt_040_504','Receipt_046_910','Receipt_048_272','Receipt_048_443']:
         #     continue
+
+        if fpath.stem.split('.')[0] not in need_id:
+            continue
 
         with fpath.open('r', encoding='utf-8') as file:
             jdata = json.load(file)
         
-        # jdata = json.loads(fpath.read_text())
         id = fpath.stem
-        # locale = locale_map.get(id)  # 從attribute 整理出locale對應id的dict
         locale = jdata['labelDatas'][0]['result']['Locale'].replace('en-', '')
-        # currency_code = currency_map_by_locale[locale.replace('en-', '')]
         print(id, locale)
         
         
+        # Primary field
         if task == "primary_field":
-            # Primary field
             for parser in parse("labelDatas.[*].result.entities").find(jdata):
                 entities = parser.value
                 for field in entities:
@@ -287,7 +309,6 @@ for task in [
                         children_list = field.get('children')
                         for children in children_list:
                             if children.get('label') == "Tax Amount" or children.get('label') == "Net Amount":
-                                # parser_currency_object(field, currency_map_by_locale, locale)
                                 parser_currency_object(children, currency_map_by_locale, locale, id)
 
             jdata['labelDatas'][0]['result']['Locale'] = locale
