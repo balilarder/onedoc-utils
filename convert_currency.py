@@ -224,8 +224,8 @@ need_id = generate_idlist_set(idlist_txts)
 
 currency_map_by_locale = json.loads(Path('./locale_to_currency.json').read_text())
 for task in [
-    "primary_field",
-    # "item"
+    # "primary_field",
+    "item"
 ]:
     # for fpath in tqdm(path.glob('ReceiptEN_007_980.jpeg.json')):
     # for fpath in tqdm(Path(f'./export/{task}/').glob('**/*.json')):
@@ -266,12 +266,12 @@ for task in [
                 for field in entities:
                     if field.get('label') in [
                         # "Total",
-                        # "TransactionTotal",
-                        # "Transaction Total",
+                        "TransactionTotal",
+                        "Transaction Total",
                         "Total Tax",
                         # "Payment Total",
-                        # "Subtotal",
-                        # "Tip",
+                        "Subtotal",
+                        "Tip",
                         # "Grand Total",
                     ]:
 
@@ -313,33 +313,33 @@ for task in [
 
             jdata['labelDatas'][0]['result']['Locale'] = locale
 
-        # # elif task == "item":
-        # #     # item
-        # #     for parser in parse("labelDatas.[*].result.entities").find(jdata):
-        # #         entities = parser.value
-        # #         for field in entities:
-        # #             if field.get('label') in [
-        # #                 "Items",
-        # #                 "Item",
-        # #             ]:
-        # #                 children_list = field.get('children')
-        # #                 for children in children_list:
-        # #                     if children.get('label') in [
-        # #                         "Total Price",
-        # #                         "Price",
-        # #                     ]:
-        # #                         parser_currency_object(field, currency_map_by_locale, locale)
-        # #                     elif children.get('label') in [
-        # #                         "Subitems",
-        # #                     ]:
-        # #                         subitems_children_list = children.get('children')
-        # #                         for subitems_children in subitems_children_list:
-        # #                             if subitems_children.get('label') in [
-        # #                                 "Total Price",
-        # #                             ]:
-        # #                                 parser_currency_object(field, currency_map_by_locale, locale)    
+        elif task == "item":
+            # item
+            for parser in parse("labelDatas.[*].result.entities").find(jdata):
+                entities = parser.value
+                for field in entities:
+                    if field.get('label') in [
+                        "Items",
+                        "Item",
+                    ]:
+                        children_list = field.get('children')
+                        for children in children_list:
+                            if children.get('label') in [
+                                "Total Price",
+                                "Price",
+                            ]:
+                                parser_currency_object(children, currency_map_by_locale, locale, id)
+                            elif children.get('label') in [
+                                "Subitems",
+                            ]:
+                                subitems_children_list = children.get('children')
+                                for subitems_children in subitems_children_list:
+                                    if subitems_children.get('label') in [
+                                        "Total Price",
+                                    ]:
+                                        parser_currency_object(subitems_children, currency_map_by_locale, locale, id)  
 
-        # #     jdata['labelDatas'][0]['result']['Locale'] = locale
+            jdata['labelDatas'][0]['result']['Locale'] = locale
 
         file_name = Path(fpath).name
         new_name = file_name.split('.', 1)[0] + ".json"
