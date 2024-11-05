@@ -22,9 +22,7 @@ def generate_MRZ_template(state, text, bboxs):
         "tags": [
             "Primary"
         ],
-        "pages": [
-            1
-        ],
+        "pages":[1] if bboxs else [],
         "children": []
     }
 
@@ -44,8 +42,11 @@ for file in sources:
         item = data_write['items'][index]
 
         result = item['labelDatas'][0]['result']['entities']
+        mrz1, mrz2, mrz3 = None, None, None
 
         for label in result:
+
+            
             if label['label'] == "MRZ1":
                 mrz1 = label
             elif label['label'] == "MRZ2":
@@ -62,19 +63,36 @@ for file in sources:
                 label['label'] = "Aliases"
         
         # parse the state
-        if mrz1['state'] == 'notFound' and mrz2['state'] == 'notFound' and mrz3['state'] == 'notFound':
-            state = "notFound"
-        elif mrz1['state'] == 'skip' or mrz2['state'] == 'skip' or mrz3['state'] == 'skip':
-            state = "skip"
+
+        if mrz1 and mrz2 and mrz3:
+
+            if mrz1['state'] == 'notFound' and mrz2['state'] == 'notFound' and mrz3['state'] == 'notFound':
+                state = "notFound"
+            elif mrz1['state'] == 'skip' or mrz2['state'] == 'skip' or mrz3['state'] == 'skip':
+                state = "skip"
+            else:
+                state = "Ok"
+
+            merge_MRZ = '\\n'.join([
+                mrz1.get('text', '') if mrz1.get('text') else "",
+                mrz2.get('text', '') if mrz2.get('text') else "",
+                mrz3.get('text', '') if mrz3.get('text') else ""
+            ]).strip('\\n')
+        
+            print(data_write['chunkId'], item['itemId'], merge_MRZ, state)
+
+            bboxs = mrz1['boundingBoxes'] + mrz2['boundingBoxes'] + mrz3['boundingBoxes']
+            
+
         else:
-            state = "Ok"
+            # Missing label in MRZ
+            state = "notFound"
+            merge_MRZ = ""
+            print(data_write['chunkId'], item['itemId'], merge_MRZ, state, "Missing MRZ")
+            bboxs = []
 
-        merge_MRZ = '\\n'.join([mrz1['text'], mrz2['text'], mrz3['text']]).strip('\\n')
-        print(data_write['chunkId'], item['itemId'], merge_MRZ, state)
-
-        bboxs = mrz1['boundingBoxes'] + mrz2['boundingBoxes'] + mrz3['boundingBoxes']
         result.append(generate_MRZ_template(state, merge_MRZ, bboxs))
-
+        
         # Remove MRZ1, MRZ2, MRZ3 from result
         result = [label for label in result if label['label'] not in ["MRZ1", "MRZ2", "MRZ3"]]
         item['labelDatas'][0]['result']['entities'] = result
