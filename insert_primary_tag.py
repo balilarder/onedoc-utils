@@ -19,22 +19,40 @@ def insert_primary_tags(json_data):
         "Interests": ['Description', 'Amount']
     }
 
+    matches = [match for match in matches if match.value.get('label') == "Accounts"]
+
     for match in matches:
         entity = match.value
         label = entity.get('label')
-        print(label)
+        print(f"match: {label}")
 
-        if label in label_to_child_labels:
-            for child in entity["children"]:
-                print(child)
-                if child['label'] in label_to_child_labels[label]:
-                    child.setdefault('tags', [])
-                    child['tags'].append("Primary")
+        for child in entity['children']:
+            if child['label'] in label_to_child_labels:
+                print(f"  child: {child['label']}")
+
+                for subfield in child['children']:
+                    if subfield['label'] in label_to_child_labels[child['label']]:
+                        print(f"    subfield: {subfield['label']}")
+
+                        if subfield['state'] != 'notFound':
+                            subfield.setdefault('tags', [])
+                            subfield['tags'].append("Primary")
+
+
+        
+        # if label in label_to_child_labels:
+        #     for child in entity["children"]:
+        #         print(child)
+        #         if child['label'] in label_to_child_labels[label]:
+        #             if child['state'] != 'notFound':
+
+        #                 child.setdefault('tags', [])
+        #                 child['tags'].append("Primary")
 
     return json_data
 
 
-root = r"C:\Users\v-linluke\Desktop\OneDoc\1127-add-primary-tag-for-single-and-multiple-bank-statement\single-bank-statement\new-chunk-data"
+root = r"C:\Users\v-linluke\Desktop\OneDoc\1127-add-primary-tag-for-single-and-multiple-bank-statement\muitiple-bank-statement\new-chunk-data"
 
 for json_file in Path(root).glob('*.json'):
     
