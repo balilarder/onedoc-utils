@@ -2,6 +2,11 @@
 Inplace modify the chunk data files, insert the Primary tag for the specific fields.
 Input: chunk file path `root`
 """
+
+
+# Currently, the code in the initial section works for `multiple bank statements` because it includes an additional Accounts structure.
+# so, if we need to handle a single bank statement, we simply uncomment the section below and remove one iteration of the for loop.
+
 from jsonpath_ng import parse
 import json
 from pathlib import Path
