@@ -28,21 +28,34 @@ for chunk in chunk_path:
 
         document_url_mapping[document_id] = f"https://onedoclabeling.azurewebsites.net/projects/{PROJECT_ID}/chunks/{chunkid}?programId={PROGRAM_ID}&itemId={itemid}"
 
-
 export_result_root = Path("C:\\Users\\v-linluke\\Desktop\\VDI\\VDI-onedoc-API-data\\20241108-export-field-result-table\\export-result\\20241108-56f9185c-9eb0-4ba7-adb1-5a5dbbaa0f52-field-1713414362-merged-1714152689")
 output_path = "C:\\Users\\v-linluke\\Desktop\\VDI\\VDI-onedoc-API-data\\20241108-export-field-result-table\\output\\output.xlsx"
 
-# Helper function to process a single entity and add it to the data list
-def process_entity(entity, filename, link):
-    return {
+
+def process_entity(entity, filename, link, parent_fieldname=""):
+    # Construct the fieldname with parent context
+    fieldname = f"{parent_fieldname} > {entity.get('label', '')}" if parent_fieldname else entity.get('label', "")
+    
+    # Create the main entity dictionary
+    entity_data = {
         'documentid': filename,
-        'fieldname': entity.get('label', ""),
+        'fieldname': fieldname,
         'tag': ", ".join(entity.get('tags', [])),
         'state': entity.get('state', ""),
         'text': entity.get('text', ""),
         'value': entity.get('value', ""),
         'link': link
     }
+    
+    # Initialize a list to store all processed entities (main + children)
+    results = [entity_data]
+    
+    # Process children recursively
+    for child in entity.get('children', []):
+        results.extend(process_entity(child, filename, link, parent_fieldname=fieldname))
+    
+    return results
+
 
 data = []
 for export_result in export_result_root.glob('*.json'):
@@ -65,14 +78,9 @@ for export_result in export_result_root.glob('*.json'):
         attribute_container.update(result.value)
 
     # Collect data for DataFrame
-    
     for result in attribute_container.get('entities', []):
-        # Process main entity
-        data.append(process_entity(result, filename, link))
-        
-        # Process children if they exist
-        for child in result.get('children', []):
-            data.append(process_entity(child, filename, link))
+        # Process main entity and its children recursively
+        data.extend(process_entity(result, filename, link))
 
 # Create DataFrame
 df = pd.DataFrame(data)
